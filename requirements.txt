@@ -1,0 +1,12 @@
+# Dependensi APLIKASI (app.py). Versi dikunci agar reproducible.
+#
+# Penanda platform untuk TensorFlow:
+#   - Linux/Windows (mis. Streamlit Community Cloud) -> tensorflow-cpu (ringan, hemat RAM)
+#   - macOS (Apple Silicon) -> tensorflow  (tensorflow-cpu TIDAK punya wheel macOS)
+# Dengan begini `pip install -r requirements.txt` jalan di kedua sisi.
+streamlit==1.58.0
+tensorflow-cpu==2.21.0 ; platform_system != "Darwin"
+tensorflow==2.21.0 ; platform_system == "Darwin"
+pillow==12.2.0
+numpy==2.4.6
+matplotlib==3.11.0

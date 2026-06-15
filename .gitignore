@@ -1,0 +1,26 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# --- Virtual environment ---
+.venv/
+venv/
+env/
+
+# --- Jupyter ---
+.ipynb_checkpoints/
+
+# --- Data mentah (JANGAN commit dataset besar; cara unduh ada di data/README.md) ---
+data/raw/
+data/dataset/
+data/*.zip
+
+# --- Streamlit ---
+.streamlit/secrets.toml
+
+# --- OS ---
+.DS_Store
+
+# CATATAN: folder model/ TIDAK diabaikan -- file model_sampah.h5 WAJIB di-commit
+# (syarat soal: "Link repository berisi ... file model tersimpan").

@@ -1,0 +1,13 @@
+# Jangan ikutkan hal yang tak diperlukan saat runtime → image lebih ramping.
+.git/
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+data/
+notebooks/
+sample_images/
+pedoman-pm.pdf
+*.md
