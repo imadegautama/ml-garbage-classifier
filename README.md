@@ -50,10 +50,11 @@ sesuai ketentuan soal.
 ## 🔬 Tahap 1 — Membangun Model (`notebooks/train_model.ipynb`)
 Dijalankan di **Google Colab** (GPU gratis). Ringkasan:
 1. **Persiapan data** — unduh, buang gambar rusak, split 70/15/15, augmentasi (flip/rotasi/zoom), normalisasi `x/127.5 − 1`.
-2. **Pelatihan** — MobileNetV2 (ImageNet) + kepala baru; base dibekukan.
-3. **Evaluasi** — accuracy, **F1 macro**, classification report, confusion matrix.
-4. **Optimasi** — **fine-tuning** 30 layer teratas (LR 1e-5), bandingkan sebelum/sesudah.
-5. **Simpan** — `model_sampah.h5` + `class_names.json` (+ `model_sampah.tflite`).
+2. **Optimasi #1 — Hyperparameter tuning** (Keras Tuner/Hyperband): cari `dropout`, `learning_rate`, unit dense terbaik.
+3. **Pelatihan** — MobileNetV2 (ImageNet) + kepala dengan hyperparameter terbaik; base dibekukan.
+4. **Evaluasi** — accuracy, **F1 macro**, classification report, confusion matrix.
+5. **Optimasi #2 — Fine-tuning** 30 layer teratas (LR 1e-5); bandingkan sebelum/sesudah.
+6. **Simpan** — `model_sampah.h5` + `class_names.json` (+ `model_sampah.tflite`).
 
 ### 📊 Hasil Evaluasi _(isi setelah training)_
 | Metrik | Baseline | Setelah fine-tuning |
@@ -106,7 +107,7 @@ Python · TensorFlow/Keras (MobileNetV2) · scikit-learn · Streamlit · Pillow 
 | Aspek (bobot) | Di mana |
 |---|---|
 | Pembangunan & evaluasi model (30%) | `notebooks/train_model.ipynb` |
-| Optimasi model (10%) | Fine-tuning (Langkah 5–6 notebook) |
+| Optimasi model (10%) | **Hyperparameter tuning (Keras Tuner) + fine-tuning** (notebook) |
 | Implementasi ke aplikasi (30%) | `app.py` + `src/` |
 | Deployment & demonstrasi (15%) | Streamlit Cloud / Docker + video demo |
 | Kualitas kode & dokumentasi (15%) | Struktur rapi, preprocessing bersama, README ini |
