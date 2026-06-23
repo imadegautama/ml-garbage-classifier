@@ -8,10 +8,13 @@ keyakinan + **Grad-CAM** (area yang diperhatikan model).
 
 > **UAS Pembelajaran Mesin — Primakara University, TA 2025/2026**
 > Dosen: Ida Bagus Kresna Sudiatmika, S.Kom., M.T.
-> Nama / NIM: _«isi nama & NIM kamu»_
+>
+> **Kelompok:**
+> - I Made Gautama — 2301020008
+> - I Kadek Indra Satya Ananda — 2301020078
 
-- 🔗 **Aplikasi (deploy):** _«isi URL Streamlit Cloud setelah deploy»_
-- 🎥 **Video demo:** _«isi link video demo»_
+- 🔗 **Aplikasi (deploy):** <https://uas-ml-garbage-classifier.streamlit.app/>
+- 💻 **Repository:** <https://github.com/imadegautama/uas-pembelajaran-mesin>
 
 ---
 
@@ -56,11 +59,16 @@ Dijalankan di **Google Colab** (GPU gratis). Ringkasan:
 5. **Optimasi #2 — Fine-tuning** 30 layer teratas (LR 1e-5); bandingkan sebelum/sesudah.
 6. **Simpan** — `model_sampah.h5` + `class_names.json` (+ `model_sampah.tflite`).
 
-### 📊 Hasil Evaluasi _(isi setelah training)_
-| Metrik | Baseline | Setelah fine-tuning |
-|---|---|---|
-| Accuracy | _…_ | _…_ |
-| F1 macro | _…_ | _…_ |
+### 📊 Hasil Evaluasi _(test set: 374 gambar)_
+| Metrik | Baseline (base beku) | Setelah fine-tuning | Δ |
+|---|---|---|---|
+| Accuracy | 84,2% | **86,1%** | +1,9% |
+| F1 macro | 80,5% | **84,0%** | +3,5% |
+
+Kedua tahap optimasi terbukti menaikkan performa. Fine-tuning juga memperbaiki
+kelas tersulit `trash` (F1 0,57 → 0,70). Kelas terbaik: `paper` & `cardboard`
+(F1 ≈ 0,89). Kelas yang masih sering tertukar: `glass`/`metal`/`plastic` (bahan
+mengkilap/transparan mirip secara visual).
 
 ## 🖥️ Tahap 2 — Aplikasi (`app.py`)
 Antarmuka:
