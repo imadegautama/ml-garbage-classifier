@@ -1,18 +1,7 @@
-# Dependensi APLIKASI (app.py). Versi dikunci agar reproducible.
+# Dependensi aplikasi STREAMLIT (app.py) — juga default untuk dev lokal.
 #
-# Penanda platform untuk TensorFlow:
-#   - Linux/Windows (mis. Streamlit Community Cloud) -> tensorflow-cpu (ringan, hemat RAM)
-#   - macOS (Apple Silicon) -> tensorflow  (tensorflow-cpu TIDAK punya wheel macOS)
-# Dengan begini `pip install -r requirements.txt` jalan di kedua sisi.
+# PENTING: fastapi/uvicorn TIDAK ada di sini. Keduanya memaksa `starlette` versi lama
+# yang bentrok dengan Streamlit 1.58 (error: cannot import DEFAULT_EXCLUDED_CONTENT_TYPES).
+# Dependensi API ada di requirements-api.txt (di-build sebagai image terpisah).
+-r requirements-base.txt
 streamlit==1.58.0
-tensorflow-cpu==2.21.0 ; platform_system != "Darwin"
-tensorflow==2.21.0 ; platform_system == "Darwin"
-pillow==12.2.0
-numpy==2.4.6
-matplotlib==3.11.0
-requests==2.32.3        # HTTP client untuk asisten AI (OpenRouter)
-
-# REST API (api.py) — dipakai oleh bot Telegram via n8n.
-fastapi==0.115.6
-uvicorn[standard]==0.34.0
-python-multipart==0.0.20

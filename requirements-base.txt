@@ -1,0 +1,13 @@
+# Dependensi BERSAMA — dipakai app Streamlit (app.py) DAN API (api.py).
+# Sengaja TANPA web-framework (streamlit/fastapi) agar tidak memaksa versi `starlette`
+# yang saling bentrok. Web-framework dipisah ke requirements.txt & requirements-api.txt.
+#
+# Penanda platform TensorFlow:
+#   - Linux/Windows (Streamlit Cloud, Coolify) -> tensorflow-cpu (x86, ringan)
+#   - macOS (Apple Silicon)                    -> tensorflow
+tensorflow-cpu==2.21.0 ; platform_system != "Darwin"
+tensorflow==2.21.0 ; platform_system == "Darwin"
+pillow==12.2.0
+numpy==2.4.6
+matplotlib==3.11.0
+requests==2.32.3        # HTTP client untuk asisten AI (OpenRouter)

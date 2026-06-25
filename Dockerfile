@@ -17,7 +17,8 @@ ENV PYTHONUNBUFFERED=1 \
 WORKDIR /app
 
 # Install dependency dulu (layer terpisah → cache build lebih cepat saat kode berubah).
-COPY requirements.txt .
+# requirements.txt memuat `-r requirements-base.txt`, jadi keduanya disalin.
+COPY requirements.txt requirements-base.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Salin sisa kode + model.

@@ -16,9 +16,10 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# Install dependency dulu (layer terpisah → cache build lebih cepat saat kode berubah).
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install dependency API (TANPA streamlit). requirements-api.txt memuat
+# `-r requirements-base.txt`, jadi keduanya disalin.
+COPY requirements-base.txt requirements-api.txt ./
+RUN pip install --no-cache-dir -r requirements-api.txt
 
 # Salin sisa kode + model (model_sampah.h5 ter-commit → ikut masuk image).
 COPY . .
