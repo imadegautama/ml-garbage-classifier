@@ -23,15 +23,26 @@ keyakinan + **Grad-CAM** (area yang diperhatikan model).
 - Prediksi kategori sampah + **tingkat keyakinan**.
 - **Grad-CAM**: visualisasi area gambar yang paling memengaruhi keputusan model.
 - Informasi edukatif daur ulang untuk tiap kategori.
+- **🤖 Asisten AI (OpenRouter):** setelah sampah terdeteksi, otomatis muncul
+  rekomendasi cara pengolahan/daur ulang, lalu bisa **tanya bebas** lewat chat.
 - Preprocessing yang **identik** antara training dan aplikasi (lihat `src/preprocessing.py`).
 
 ## 🧱 Struktur Proyek
 ```
 .
 ├── app.py                    # APLIKASI Streamlit (Tahap 2)
+├── api.py                    # REST API (FastAPI) — dipakai bot Telegram via n8n
 ├── src/
 │   ├── preprocessing.py      # preprocessing gambar — dipakai BERSAMA train & app
-│   └── gradcam.py            # util Grad-CAM
+│   ├── gradcam.py            # util Grad-CAM
+│   ├── labels.py             # metadata label kelas (dipakai app.py + api.py)
+│   └── llm.py                # klien OpenRouter (asisten AI: rekomendasi + chat + guardrail)
+├── n8n/
+│   └── waste-bot.workflow.json  # workflow Telegram (import ke n8n)
+├── docs/
+│   └── TELEGRAM_N8N.md       # panduan bot Telegram (n8n + BotFather)
+├── .streamlit/
+│   └── secrets.toml.example  # template API key (salin → secrets.toml, lalu isi)
 ├── model/
 │   ├── model_sampah.h5       # model terlatih (hasil notebook)
 │   └── class_names.json      # urutan label kelas
@@ -74,7 +85,45 @@ mengkilap/transparan mirip secara visual).
 Antarmuka:
 - **Input:** gambar `jpg/png` (unggah) atau foto kamera.
 - **Proses:** `preprocess_image()` (resize 224×224 + normalisasi) — sama seperti training.
-- **Output:** kategori prediksi, persentase keyakinan, bar probabilitas semua kelas, overlay Grad-CAM, info daur ulang.
+- **Output:** kategori prediksi, persentase keyakinan, bar probabilitas semua kelas, overlay Grad-CAM, info daur ulang, **rekomendasi & chat AI**.
+
+## 🤖 Asisten AI (OpenRouter)
+Setelah gambar diklasifikasikan, aplikasi otomatis meminta LLM (lewat
+[OpenRouter](https://openrouter.ai)) memberi **rekomendasi cara pengolahan/daur ulang**
+untuk jenis sampah tersebut. Pengguna lalu bisa **bertanya bebas** di kolom chat —
+konteks jenis sampah yang terdeteksi otomatis disertakan. Logikanya ada di `src/llm.py`.
+
+**Menyiapkan API key** (buat gratis di <https://openrouter.ai/keys>). Urutan prioritas
+pembacaan key: input sidebar → `st.secrets` → environment variable.
+
+- **Lokal (file secrets):**
+  ```bash
+  cp .streamlit/secrets.toml.example .streamlit/secrets.toml
+  # lalu isi OPENROUTER_API_KEY = "sk-or-..."  (file ini sudah di-gitignore)
+  ```
+- **Saat demo cepat:** cukup tempel key di kolom **"OpenRouter API Key"** pada sidebar.
+- **Streamlit Community Cloud:** menu **Settings → Secrets**, tambahkan
+  `OPENROUTER_API_KEY = "sk-or-..."`.
+- **Docker:** kirim sebagai env var → `docker run -p 8501:8501 -e OPENROUTER_API_KEY="sk-or-..." klasifikasi-sampah`.
+
+> Model default `google/gemma-4-31b-it:free` (gratis). Bisa diganti ke model lain
+> (mis. berbayar yang lebih kuat) lewat kolom **Model** di sidebar. Model `:free` kadang
+> kena rate-limit (error 429) — cukup ganti ke model lain bila terjadi. Tanpa API key,
+> fitur chat nonaktif tetapi klasifikasi gambar tetap berjalan normal.
+
+## 🤖 Bot Telegram (n8n) — opsional
+Selain web Streamlit, klasifikasi bisa diakses lewat **Telegram**: kirim foto → bot membalas
+jenis sampah + Grad-CAM + rekomendasi → bisa tanya-jawab AI (khusus topik sampah). Model & LLM
+diakses lewat REST API `api.py`; orkestrasi Telegram memakai **n8n** + bot dari **BotFather**.
+
+```bash
+# 1) Jalankan REST API (native — di Apple Silicon JANGAN via Docker karena isu TF/AVX)
+OPENROUTER_API_KEY="sk-or-..." uvicorn api:app --host 0.0.0.0 --port 8800
+# 2) Jalankan n8n (Docker) + tunnel, lalu import n8n/waste-bot.workflow.json
+docker run -it --rm -p 5678:5678 -v n8n_data:/home/node/.n8n docker.n8n.io/n8nio/n8n start --tunnel
+```
+Panduan lengkap (BotFather, import workflow, kredensial, troubleshooting):
+[`docs/TELEGRAM_N8N.md`](docs/TELEGRAM_N8N.md).
 
 ## 🚀 Cara Menjalankan
 
@@ -96,8 +145,9 @@ menampilkan instruksi untuk melatih model lebih dulu.
 ### B. Docker (opsional, portabel)
 ```bash
 docker build -t klasifikasi-sampah .
-docker run -p 8501:8501 klasifikasi-sampah
+docker run -p 8501:8501 -e OPENROUTER_API_KEY="sk-or-..." klasifikasi-sampah
 ```
+> `-e OPENROUTER_API_KEY=...` opsional — hanya untuk mengaktifkan asisten AI.
 
 ### C. Melatih ulang model
 Buka `notebooks/train_model.ipynb` di Google Colab → *Runtime: GPU* → jalankan
@@ -108,8 +158,13 @@ semua sel → unduh `model_sampah.h5` & `class_names.json` → letakkan di `mode
 <https://share.streamlit.io> → pilih repo → main file `app.py` → set Python 3.12/3.13.
 Alternatif container: Render / Railway / Cloud Run / Fly.io memakai `Dockerfile`.
 
+**Coolify (CI/CD via GitHub Actions → Docker Hub):** push ke `main` otomatis mem-build 2 image
+(API `Dockerfile.api` + Streamlit `Dockerfile`) → push ke Docker Hub → trigger redeploy Coolify.
+Workflow: [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml). Panduan lengkap
+(secrets, resource Coolify, n8n): [`docs/COOLIFY_DEPLOY.md`](docs/COOLIFY_DEPLOY.md).
+
 ## 🛠️ Teknologi
-Python · TensorFlow/Keras (MobileNetV2) · scikit-learn · Streamlit · Pillow · NumPy · Matplotlib
+Python · TensorFlow/Keras (MobileNetV2) · scikit-learn · Streamlit · Pillow · NumPy · Matplotlib · OpenRouter (LLM) via `requests`
 
 ## 🗺️ Pemetaan ke Kriteria Penilaian
 | Aspek (bobot) | Di mana |

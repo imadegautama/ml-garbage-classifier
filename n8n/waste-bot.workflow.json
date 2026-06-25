@@ -1,0 +1,286 @@
+{
+  "name": "Bot Sampah (Telegram)",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": ["message"],
+        "additionalFields": {}
+      },
+      "id": "trigger",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 300],
+      "credentials": {
+        "telegramApi": { "id": "REPLACE_ME", "name": "Telegram account" }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "is-photo",
+              "leftValue": "={{ $json.message.photo }}",
+              "rightValue": "",
+              "operator": { "type": "array", "operation": "exists", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "is-photo",
+      "name": "Is Photo?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [220, 300]
+    },
+
+    {
+      "parameters": {
+        "resource": "file",
+        "fileId": "={{ $json.message.photo[$json.message.photo.length - 1].file_id }}",
+        "download": true
+      },
+      "id": "get-file",
+      "name": "Get File",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [440, 160],
+      "credentials": {
+        "telegramApi": { "id": "REPLACE_ME", "name": "Telegram account" }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8800/predict",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "predict",
+      "name": "Predict",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, 160]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "=Hasil deteksi: {{ $('Predict').item.json.label }} ({{ $('Predict').item.json.pred_class }})\nKeyakinan: {{ ($('Predict').item.json.confidence * 100).toFixed(1) }}%\n{{ $('Predict').item.json.status }} — {{ $('Predict').item.json.tip }}",
+        "additionalFields": {}
+      },
+      "id": "send-result",
+      "name": "Send Result",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [880, 160],
+      "credentials": {
+        "telegramApi": { "id": "REPLACE_ME", "name": "Telegram account" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const b64 = $('Predict').first().json.gradcam_b64;\nif (!b64) { return []; }\nreturn [{\n  json: {},\n  binary: { gradcam: { data: b64, mimeType: 'image/png', fileName: 'gradcam.png' } }\n}];"
+      },
+      "id": "gradcam-bin",
+      "name": "Gradcam To Binary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, 160]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendPhoto",
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "binaryData": true,
+        "binaryPropertyName": "gradcam",
+        "additionalFields": { "caption": "Grad-CAM: area yang diperhatikan model" }
+      },
+      "id": "send-gradcam",
+      "name": "Send Gradcam",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1320, 160],
+      "credentials": {
+        "telegramApi": { "id": "REPLACE_ME", "name": "Telegram account" }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8800/chat",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ pred_class: $('Predict').item.json.pred_class, label: $('Predict').item.json.label, confidence: $('Predict').item.json.confidence, messages: [ { role: 'user', content: 'Berikan rekomendasi cara pengolahan dan daur ulang untuk sampah jenis ' + $('Predict').item.json.label + ' ini.' } ] }) }}",
+        "options": {}
+      },
+      "id": "auto-reco",
+      "name": "Auto Reco",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1540, 160]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "={{ $('Auto Reco').item.json.reply }}",
+        "additionalFields": {}
+      },
+      "id": "send-reco",
+      "name": "Send Reco",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1760, 160],
+      "credentials": {
+        "telegramApi": { "id": "REPLACE_ME", "name": "Telegram account" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const chatId = $('Telegram Trigger').first().json.message.chat.id;\nconst pred = $('Predict').first().json;\nconst reco = $('Auto Reco').first().json.reply;\nconst store = $getWorkflowStaticData('global');\nstore[chatId] = {\n  pred_class: pred.pred_class,\n  label: pred.label,\n  confidence: pred.confidence,\n  history: [{ role: 'assistant', content: reco }],\n};\nreturn [{ json: { saved: true, chatId } }];"
+      },
+      "id": "save-context",
+      "name": "Save Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1980, 160]
+    },
+
+    {
+      "parameters": {
+        "jsCode": "const trigger = $('Telegram Trigger').first().json;\nconst chatId = trigger.message.chat.id;\nconst text = (trigger.message.text || '').trim();\nconst store = $getWorkflowStaticData('global');\nconst ctx = store[chatId];\nif (!ctx || text === '/start') {\n  return [{ json: { hasContext: false, chatId } }];\n}\nconst history = ctx.history || [];\nconst messages = [...history, { role: 'user', content: text }];\nreturn [{ json: { hasContext: true, chatId, userText: text, pred_class: ctx.pred_class, label: ctx.label, confidence: ctx.confidence, messages } }];"
+      },
+      "id": "build-messages",
+      "name": "Build Messages",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 460]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "has-ctx",
+              "leftValue": "={{ $json.hasContext }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "has-context",
+      "name": "Has Context?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [660, 460]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8800/chat",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ pred_class: $('Build Messages').item.json.pred_class, label: $('Build Messages').item.json.label, confidence: $('Build Messages').item.json.confidence, messages: $('Build Messages').item.json.messages }) }}",
+        "options": {}
+      },
+      "id": "chat",
+      "name": "Chat",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [880, 380]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "={{ $('Chat').item.json.reply }}",
+        "additionalFields": {}
+      },
+      "id": "send-reply",
+      "name": "Send Reply",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1100, 380],
+      "credentials": {
+        "telegramApi": { "id": "REPLACE_ME", "name": "Telegram account" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const chatId = $('Build Messages').first().json.chatId;\nconst userText = $('Build Messages').first().json.userText;\nconst reply = $('Chat').first().json.reply;\nconst store = $getWorkflowStaticData('global');\nconst ctx = store[chatId] || { history: [] };\nconst history = [...(ctx.history || []), { role: 'user', content: userText }, { role: 'assistant', content: reply }];\nctx.history = history.slice(-10);\nstore[chatId] = ctx;\nreturn [{ json: { updated: true } }];"
+      },
+      "id": "update-context",
+      "name": "Update Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1320, 380]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "Halo! 👋 Kirim *foto sampah* ya, nanti aku deteksi jenisnya lalu kasih cara pengolahan & daur ulangnya. Setelah itu kamu bisa tanya-tanya seputar sampah itu. ♻️",
+        "additionalFields": {}
+      },
+      "id": "send-welcome",
+      "name": "Send Welcome",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [880, 560],
+      "credentials": {
+        "telegramApi": { "id": "REPLACE_ME", "name": "Telegram account" }
+      }
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": { "main": [[{ "node": "Is Photo?", "type": "main", "index": 0 }]] },
+    "Is Photo?": {
+      "main": [
+        [{ "node": "Get File", "type": "main", "index": 0 }],
+        [{ "node": "Build Messages", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get File": { "main": [[{ "node": "Predict", "type": "main", "index": 0 }]] },
+    "Predict": { "main": [[{ "node": "Send Result", "type": "main", "index": 0 }]] },
+    "Send Result": { "main": [[{ "node": "Gradcam To Binary", "type": "main", "index": 0 }]] },
+    "Gradcam To Binary": { "main": [[{ "node": "Send Gradcam", "type": "main", "index": 0 }]] },
+    "Send Gradcam": { "main": [[{ "node": "Auto Reco", "type": "main", "index": 0 }]] },
+    "Auto Reco": { "main": [[{ "node": "Send Reco", "type": "main", "index": 0 }]] },
+    "Send Reco": { "main": [[{ "node": "Save Context", "type": "main", "index": 0 }]] },
+    "Build Messages": { "main": [[{ "node": "Has Context?", "type": "main", "index": 0 }]] },
+    "Has Context?": {
+      "main": [
+        [{ "node": "Chat", "type": "main", "index": 0 }],
+        [{ "node": "Send Welcome", "type": "main", "index": 0 }]
+      ]
+    },
+    "Chat": { "main": [[{ "node": "Send Reply", "type": "main", "index": 0 }]] },
+    "Send Reply": { "main": [[{ "node": "Update Context", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "active": false
+}

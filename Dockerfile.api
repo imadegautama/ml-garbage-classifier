@@ -1,0 +1,28 @@
+# =============================================================================
+# Dockerfile.api — REST API FastAPI (api.py) untuk bot Telegram / integrasi.
+# -----------------------------------------------------------------------------
+# Image ini menjalankan uvicorn (BUKAN Streamlit). Dibangun di GitHub Actions
+# (Linux x86_64) lalu di-deploy ke Coolify — di sana `tensorflow-cpu` jalan normal
+# (tidak ada isu emulasi AVX seperti di Mac Apple Silicon).
+#
+# Untuk image Streamlit, lihat `Dockerfile` (terpisah).
+# =============================================================================
+
+FROM python:3.12-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /app
+
+# Install dependency dulu (layer terpisah → cache build lebih cepat saat kode berubah).
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Salin sisa kode + model (model_sampah.h5 ter-commit → ikut masuk image).
+COPY . .
+
+# Coolify/host bisa memberi $PORT; fallback 8800 untuk lokal.
+EXPOSE 8800
+CMD uvicorn api:app --host 0.0.0.0 --port ${PORT:-8800}

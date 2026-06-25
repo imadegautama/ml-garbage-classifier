@@ -6,6 +6,8 @@ env/
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
+# Jangan bake API key ke image — dikirim via env var saat `docker run`.
+.streamlit/secrets.toml
 data/
 notebooks/
 sample_images/
